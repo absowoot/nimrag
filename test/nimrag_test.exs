@@ -76,4 +76,67 @@ defmodule NimragTest do
     assert {:ok, %Nimrag.Api.ActivityDetails{}, _client} =
              Nimrag.activity_details(client(), 15_205_844_761)
   end
+
+  test "#adhoc_challenges" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, [challenge], _client} = Nimrag.adhoc_challenges(client())
+    assert challenge["uuid"] == "challenge-1"
+  end
+
+  test "#adhoc_challenge" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, %{"players" => [_player]}, _client} =
+             Nimrag.adhoc_challenge(client(), "challenge-1")
+  end
+
+  test "#adhoc_challenge with gc_api option" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, %{"source" => "gc-api"}, _client} =
+             Nimrag.adhoc_challenge(client(), "challenge-1", gc_api: true)
+  end
+
+  test "#adhoc_challenge returns error tuple on non-200 response" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      conn
+      |> Plug.Conn.put_status(404)
+      |> Req.Test.json(%{"error" => "not found"})
+    end)
+
+    assert {:error, %Req.Response{status: 404}} = Nimrag.adhoc_challenge(client(), "missing")
+  end
+
+  test "#owner_activities" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, [activity], _client} = Nimrag.owner_activities(client(), "owner-uuid")
+    assert activity["ownerDisplayName"] == "owner-uuid"
+  end
+
+  test "#activities_search with filters" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, activities, _client} =
+             Nimrag.activities_search(client(),
+               start: 0,
+               limit: 10,
+               user_profile_id: 35,
+               include_followed: true
+             )
+
+    assert is_list(activities)
+    assert Enum.count(activities) == 1
+  end
 end

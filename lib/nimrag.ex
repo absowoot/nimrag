@@ -136,6 +136,135 @@ defmodule Nimrag do
   end
 
   @doc """
+  Gets non-completed adhoc challenges.
+
+  Supported options:
+  - `:today_date` - optional date string sent as `todayDate`
+  - `:gc_api` - use `/gc-api` prefixed path
+  """
+  @spec adhoc_challenges(Client.t(), keyword()) :: {:ok, list(map()), Client.t()} | error()
+  def adhoc_challenges(client, opts \\ []) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <-
+           adhoc_challenges_req(client, opts),
+         {:ok, challenges} <- decode_map_list(body) do
+      {:ok, challenges, client}
+    end
+  end
+
+  @spec adhoc_challenges_req(Client.t(), keyword()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def adhoc_challenges_req(client, opts \\ []) do
+    get(client,
+      url: maybe_gc_api_path("/adhocchallenge-service/adHocChallenge/nonCompleted", opts),
+      params: maybe_today_date_param(opts)
+    )
+  end
+
+  @doc """
+  Gets details of a single adhoc challenge.
+
+  Supported options:
+  - `:today_date` - optional date string sent as `todayDate`
+  - `:gc_api` - use `/gc-api` prefixed path
+  """
+  @spec adhoc_challenge(Client.t(), String.t(), keyword()) :: {:ok, map(), Client.t()} | error()
+  def adhoc_challenge(client, challenge_id, opts \\ []) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <-
+           adhoc_challenge_req(client, challenge_id, opts),
+         true <- is_map(body) do
+      {:ok, body, client}
+    else
+      {:ok, %Req.Response{body: body}, _client} -> {:error, {:invalid_response, body}}
+      false -> {:error, :invalid_response}
+      error -> error
+    end
+  end
+
+  @spec adhoc_challenge_req(Client.t(), String.t(), keyword()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def adhoc_challenge_req(client, challenge_id, opts \\ []) do
+    get(client,
+      url: maybe_gc_api_path("/adhocchallenge-service/adHocChallenge/:challenge_id", opts),
+      path_params: [challenge_id: challenge_id],
+      params: maybe_today_date_param(opts)
+    )
+  end
+
+  @doc """
+  Gets activities feed by owner display name.
+
+  Supported options:
+  - `:start` - pagination offset (default `1`)
+  - `:limit` - pagination limit (default `20`)
+  - `:gc_api` - use `/gc-api` prefixed path
+  """
+  @spec owner_activities(Client.t(), String.t(), keyword()) ::
+          {:ok, list(map()), Client.t()} | error()
+  def owner_activities(client, owner_display_name, opts \\ []) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <-
+           owner_activities_req(client, owner_display_name, opts) do
+      {:ok, activity_list_from_body(body), client}
+    end
+  end
+
+  @spec owner_activities_req(Client.t(), String.t(), keyword()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def owner_activities_req(client, owner_display_name, opts \\ []) do
+    get(client,
+      url: maybe_gc_api_path("/activitylist-service/activities/:owner_display_name", opts),
+      path_params: [owner_display_name: owner_display_name],
+      params: [
+        start: option_value(opts, [:start], 1),
+        limit: option_value(opts, [:limit], 20)
+      ]
+    )
+  end
+
+  @doc """
+  Searches activities with Garmin filters.
+
+  Supported options:
+  - `:start` (default `0`)
+  - `:limit` (default `20`)
+  - `:user_profile_id` (maps to `userProfileId`)
+  - `:include_followed` (maps to `includeFollowed`)
+  - `:start_date` (maps to `startDate`)
+  - `:end_date` (maps to `endDate`)
+  - `:gc_api` - use `/gc-api` prefixed path
+  """
+  @spec activities_search(Client.t(), keyword()) :: {:ok, list(map()), Client.t()} | error()
+  def activities_search(client, opts \\ []) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <-
+           activities_search_req(client, opts) do
+      {:ok, activity_list_from_body(body), client}
+    end
+  end
+
+  @spec activities_search_req(Client.t(), keyword()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def activities_search_req(client, opts \\ []) do
+    params =
+      []
+      |> Keyword.put(:start, option_value(opts, [:start], 0))
+      |> Keyword.put(:limit, option_value(opts, [:limit], 20))
+      |> maybe_put_param(
+        :userProfileId,
+        option_value(opts, [:user_profile_id, :userProfileId], nil)
+      )
+      |> maybe_put_param(
+        :includeFollowed,
+        option_value(opts, [:include_followed, :includeFollowed], nil)
+      )
+      |> maybe_put_param(:startDate, option_value(opts, [:start_date, :startDate], nil))
+      |> maybe_put_param(:endDate, option_value(opts, [:end_date, :endDate], nil))
+
+    get(client,
+      url: maybe_gc_api_path("/activitylist-service/activities/search/activities", opts),
+      params: params
+    )
+  end
+
+  @doc """
   Downloads activity.
 
   Activity download artifact - if original format is used, it's a zip and you
@@ -221,4 +350,69 @@ defmodule Nimrag do
       path_params: [username: username]
     )
   end
+
+  defp maybe_gc_api_path(path, opts) do
+    if option_value(opts, [:gc_api, :gc_api?], false) do
+      "/gc-api#{path}"
+    else
+      path
+    end
+  end
+
+  defp maybe_today_date_param(opts) do
+    case option_value(opts, [:today_date, :todayDate], nil) do
+      nil -> []
+      today_date -> [todayDate: today_date]
+    end
+  end
+
+  defp decode_map_list(body) when is_list(body) do
+    {:ok, Enum.filter(body, &is_map/1)}
+  end
+
+  defp decode_map_list(body) do
+    {:error, {:invalid_response, body}}
+  end
+
+  defp activity_list_from_body(body) when is_list(body) do
+    Enum.filter(body, &is_map/1)
+  end
+
+  defp activity_list_from_body(body) when is_map(body) do
+    body
+    |> first_list_for_keys([
+      "activityList",
+      :activityList,
+      "activities",
+      :activities,
+      "results",
+      :results,
+      "data",
+      :data
+    ])
+    |> Enum.filter(&is_map/1)
+  end
+
+  defp activity_list_from_body(_body), do: []
+
+  defp first_list_for_keys(payload, keys) do
+    Enum.find_value(keys, [], fn key ->
+      case Map.get(payload, key) do
+        value when is_list(value) -> value
+        _ -> nil
+      end
+    end) || []
+  end
+
+  defp option_value(opts, keys, default) do
+    Enum.find_value(keys, default, fn key ->
+      case Keyword.fetch(opts, key) do
+        {:ok, value} -> value
+        :error -> nil
+      end
+    end)
+  end
+
+  defp maybe_put_param(params, _key, nil), do: params
+  defp maybe_put_param(params, key, value), do: Keyword.put(params, key, value)
 end
