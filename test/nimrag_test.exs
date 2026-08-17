@@ -139,4 +139,56 @@ defmodule NimragTest do
     assert is_list(activities)
     assert Enum.count(activities) == 1
   end
+
+  test "#sleep_daily_current" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, %{"dailySleepDTO" => sleep}, _client} =
+             Nimrag.sleep_daily_current(client(), ~D[2024-05-01])
+
+    assert sleep["sleepTimeSeconds"] == 24_900
+  end
+
+  test "#hrv_daily" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, %{"hrvSummary" => summary}, _client} = Nimrag.hrv_daily(client(), ~D[2024-05-01])
+    assert summary["weeklyAvg"] == 48
+    assert summary["status"] == "BALANCED"
+  end
+
+  test "#hrv_daily returns error tuple on non-200 response" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      conn
+      |> Plug.Conn.put_status(404)
+      |> Req.Test.json(%{"error" => "not found"})
+    end)
+
+    assert {:error, %Req.Response{status: 404}} = Nimrag.hrv_daily(client(), ~D[2024-05-01])
+  end
+
+  test "#training_status" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      Req.Test.json(conn, read_response_fixture(conn))
+    end)
+
+    assert {:ok, %{"mostRecentTrainingStatus" => status}, _client} =
+             Nimrag.training_status(client(), ~D[2024-05-01])
+
+    assert is_map(status["latestTrainingStatusData"])
+  end
+
+  test "#training_status returns error tuple on non-200 response" do
+    Req.Test.stub(Nimrag.Api, fn conn ->
+      conn
+      |> Plug.Conn.put_status(404)
+      |> Req.Test.json(%{"error" => "not found"})
+    end)
+
+    assert {:error, %Req.Response{status: 404}} = Nimrag.training_status(client(), ~D[2024-05-01])
+  end
 end

@@ -345,9 +345,92 @@ defmodule Nimrag do
 
   def sleep_daily_req(client, username, date \\ Date.utc_today(), buffer_minutes \\ 60) do
     get(client,
-      url: "wellness-service/wellness/dailySleepData/:username",
+      url: "/wellness-service/wellness/dailySleepData/:username",
       params: [nonSleepBufferMinutes: buffer_minutes, date: Date.to_iso8601(date)],
       path_params: [username: username]
+    )
+  end
+
+  @doc """
+  Gets sleep data for the authenticated user without a display name.
+  """
+  @spec sleep_daily_current(Client.t()) :: {:ok, map(), Client.t()} | error()
+  @spec sleep_daily_current(Client.t(), Date.t()) :: {:ok, map(), Client.t()} | error()
+  def sleep_daily_current(client, date \\ Date.utc_today()) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <-
+           sleep_daily_current_req(client, date),
+         true <- is_map(body) do
+      {:ok, body, client}
+    else
+      {:ok, %Req.Response{body: body}, _client} -> {:error, {:invalid_response, body}}
+      false -> {:error, :invalid_response}
+      error -> error
+    end
+  end
+
+  @spec sleep_daily_current_req(Client.t()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  @spec sleep_daily_current_req(Client.t(), Date.t()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def sleep_daily_current_req(client, date \\ Date.utc_today()) do
+    get(client,
+      url: "/sleep-service/sleep/dailySleepData",
+      params: [nonSleepBufferMinutes: 60, date: Date.to_iso8601(date)]
+    )
+  end
+
+  @doc """
+  Gets HRV data for a given day.
+  """
+  @spec hrv_daily(Client.t()) :: {:ok, map(), Client.t()} | error()
+  @spec hrv_daily(Client.t(), Date.t()) :: {:ok, map(), Client.t()} | error()
+  def hrv_daily(client, date \\ Date.utc_today()) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <- hrv_daily_req(client, date),
+         true <- is_map(body) do
+      {:ok, body, client}
+    else
+      {:ok, %Req.Response{body: body}, _client} -> {:error, {:invalid_response, body}}
+      false -> {:error, :invalid_response}
+      error -> error
+    end
+  end
+
+  @spec hrv_daily_req(Client.t()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  @spec hrv_daily_req(Client.t(), Date.t()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def hrv_daily_req(client, date \\ Date.utc_today()) do
+    get(client,
+      url: "/hrv-service/hrv/:date",
+      path_params: [date: Date.to_iso8601(date)]
+    )
+  end
+
+  @doc """
+  Gets aggregated training status for a given day.
+  """
+  @spec training_status(Client.t()) :: {:ok, map(), Client.t()} | error()
+  @spec training_status(Client.t(), Date.t()) :: {:ok, map(), Client.t()} | error()
+  def training_status(client, date \\ Date.utc_today()) do
+    with {:ok, %Req.Response{status: 200, body: body}, client} <-
+           training_status_req(client, date),
+         true <- is_map(body) do
+      {:ok, body, client}
+    else
+      {:ok, %Req.Response{body: body}, _client} -> {:error, {:invalid_response, body}}
+      false -> {:error, :invalid_response}
+      error -> error
+    end
+  end
+
+  @spec training_status_req(Client.t()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  @spec training_status_req(Client.t(), Date.t()) ::
+          {:ok, Req.Response.t(), Client.t()} | {:error, Req.Response.t()}
+  def training_status_req(client, date \\ Date.utc_today()) do
+    get(client,
+      url: "/metrics-service/metrics/trainingstatus/aggregated/:date",
+      path_params: [date: Date.to_iso8601(date)]
     )
   end
 
