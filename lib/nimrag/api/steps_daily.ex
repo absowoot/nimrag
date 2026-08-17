@@ -4,8 +4,8 @@ defmodule Nimrag.Api.StepsDaily do
   @type t() :: %__MODULE__{
           calendar_date: String.t(),
           step_goal: integer(),
-          total_distance: integer(),
-          total_steps: integer()
+          total_distance: nil | integer(),
+          total_steps: nil | integer()
         }
 
   defstruct calendar_date: nil, step_goal: 0, total_distance: 0, total_steps: 0
