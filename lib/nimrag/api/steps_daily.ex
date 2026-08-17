@@ -14,8 +14,8 @@ defmodule Nimrag.Api.StepsDaily do
     schema(__MODULE__, %{
       field(:calendar_date) => date(),
       field(:step_goal) => int(),
-      field(:total_distance) => int(),
-      field(:total_steps) => int()
+      field(:total_distance) => nullable(int()),
+      field(:total_steps) => nullable(int())
     })
   end
 end
